@@ -1,7 +1,95 @@
 
 
+
+### preparations ---------------------------------------------
+
+# clear workspace
+rm(list=ls(all=TRUE))
+
+# install and load packages
+pkgs <- c("RCurl", "XML", "stringr", "httr", "plyr", "ggplot2")
+# install.packages(pkgs)
+lapply(pkgs, library, character.only=T)
+
+
+
+#################################################################################################
+# Get drom data repositories
+# Quandl 
+# St Louis FED (FRED)
+#################################################################################################
+
+require(Quandl)
+mydata = Quandl("FRED/GDPPOT", start_date="2005-01-03",end_date="2013-04-10",type="xts")
+#  or alternatively use quantmod
+install.packages("quantmod")
+require(quantmod)
+
+
+## St Louis FED
+## with API Key
+devtools::install_github("jcizel/FredR")
+require(FredR)
+require(ggplot2)
+api.key = 'd696e67c986a8c6cc318a551bf2166c3'
+fred <- FredR(api.key)
+str(fred,1)
+gdp.series <- fred$series.search("GDP")
+va.starts <- fred$series.search("VABP1FH")
+cpi <-  fred$series.search("CPIAUCSL")
+mort <- fred$series.search("MORTG")
+### Create a data frame of monthly housing starts
+vastart <- fred$series.observations(series_id = 'VABP1FH')
+### Create a data frame of 30-Year Conventional Mortgage Rate #########################
+
+mortg  <- fred$series.observations(series_id = 'MORTG')
+mortg <- subset(mortg,date >= '1996-01-01')
+mortg$value <- as.numeric(mortg$value )/100
+### COnvert interest rate to monthly payment per $1,000 borrowed, 30-year fixed
+mortg$mopay <- (mortg$value*(1+mortg$value)^30)/ (((1+mortg$value)^30) -1)*1000
+plot(log(mortg$mopay))
+
+### Create a data frame of monthly cpi ################################################
+cpiindx <- fred$series.observations(series_id = 'CPIAUCSL')
+cpiindx <- subset(cpiindx,date >= '1996-01-01')
+#### Reference 1-1-2010 217.488=100
+base = 217.488
+cpiindx$value <-  as.numeric(cpiindx$value) / base
+# make time-series
+cpi.ts1 <- ts(cpiindx, start = c(1996, 1), end = c(2015, 2), frequency = 12)
+cpi.ts2 <- cpi.ts1[!is.na(cpi.ts1)]
+cpi.ts <- ts(cpi.ts2, start = c(1996, 1), end = c(2015, 2), frequency = 12)
+######################################################################################
+#plot the result
+vastart %>%
+  select(
+    date,
+    value
+  ) %>%
+  mutate(
+    date = as.Date(date),
+    value = as.numeric(value)
+  ) ->
+  dt
+
+
+qplot(data = dt, x = date, y = value, geom = 'line')
+
+#################################################################################################
+#################################################################################################
+# Read csv file from NBER on marginal tax rates
+#http://users.nber.org/~taxsim/marginal-tax-rates/
+#################################################################################################
+avgtax <- msp <- read.csv("http://users.nber.org/~taxsim/marginal-tax-rates/at.csv")
+head(avgtax)
+avgtax.va <- subset(avgtax,state2let=="VA")
+
+
+#################################################################################################
+#################################################################################################
 # Read csv file from Zillow on median sales price by county
-msp <- read.csv("http://files.zillowstatic.com/research/public/County/County_MedianSoldPrice_AllHomes.csv")
+#################################################################################################
+msp <- read.csv("http://files.zillowstatic.com/research/public/County/County_MedianSoldPrice_AllHomes.csv",stringsAsFactors = FALSE)
 head(msp)
 msp.va <- subset(msp,StateCodeFIPS=='51')
 name <- msp.va$RegionName
@@ -18,12 +106,41 @@ tmsp.va$period = seq(as.Date("1996/4/1"), as.Date("2015/2/1"),"month")
 
 msp.fluvan <- tmsp.va[1:226,c("period","Fluvanna")]
 
-#### Seasonal Decomposition
+### data frame with NA's
 msp.fl <- tmsp.va[1:226,"Fluvanna"]
-fl.ts <- approxfun(1:226, msp.fl)(1:226)
+### Clean data and remove outliers ##########################
+# http://robjhyndman.com/hyndsight/forecast5/
+##############################################################
+library(fpp)
+plot(msp.fl, main="Median Sales Price, Fluvanna County")
+lines(, col='red')
+
+## create time series object
+fl.ts <- tsclean(msp.fl)
 fl.ts <- ts(fl.ts, start = c(1996, 4), end = c(2015, 1), frequency = 12)
-m <- decompose(fl.ts)
-print(m)
+
+### Inflation adjustment
+library(zoo)
+msp.merge <- merge(fl.ts = as.zoo(fl.ts), cpi.ts = as.zoo(cpi.ts))
+
+msp.merge$fl_real <- msp.merge$fl.ts/(msp.merge$cpi.ts)
+msp.merge <- msp.merge[,-c(1:2)]
+
+fl_real.ts <- ts(msp.merge, start = c(1996, 1), end = c(2015, 3), frequency = 12)
+
+## Data examine #################################################################################
+#  http://yunus.hacettepe.edu.tr/~iozkan/eco665/archgarch.html
+plot(log(fl_real.ts), main="Log of Real Median Sales Price, Fluvanna County")
+# stationary in mean
+tsdisplay(diff(log(fl_real.ts)))
+seasonplot(fl_real.ts,col=rainbow(12),year.labels=TRUE)
+###################################################################################################
+
+ts.plot(fl.ts,fl_real.ts, gpars = list(col = c("black", "red")))
+
+#### Seasonal Decomposition
+decom.fl <- decompose(fl.ts)
+print(decom.fl)
 
 n <- stl(fl.ts,s.window="periodic",robust=TRUE)    #t.window=12,
 plot(n)
@@ -44,7 +161,15 @@ res = AnomalyDetectionVec(fl.df$Y, max_anoms=0.02,  period=20,direction='both', 
 res$plot
 
 ########################################################################
+## a univariate time series model  double exponential smooth with a damped trend.
 
+fit1 <- ets(log(fl_real.ts))
+accuracy(fit1)
+plot(forecast(fit1,level=c(50,80,95)))
+plot(forecast(fit1,fan=TRUE))
+
+plot(holt(log(fl_real.ts), damped=TRUE, exponential=TRUE))
+########################################################################
 rownames(msp.fluvan) <- NULL
 sapply(msp.fluvan,class)
 
@@ -64,7 +189,23 @@ qplot(period,Fluvanna,data=fluvan.ts)
 
 ggplot(tmsp.va) + geom_line (aes(x=period, y=Fluvanna))
 
+#################################################################################################
+# Read csv file from Zillow on forclosures per 10000 by county
+#################################################################################################
+forcl <- read.csv("http://files.zillowstatic.com/research/public/County/County_HomesSoldAsForeclosures-Ratio_AllHomes.csv")
+head(forcl)
+forcl.va <- subset(forcl,StateCodeFIPS=='51')
+name <- forcl.va$RegionName
+# transpose all but the first column (name)
+tforcl.va <- as.data.frame(t(forcl.va[,-1]))
+length(tforcl.va)
+colnames(tforcl.va) <- name
+rownames(tforcl.va) <- NULL
+tforcl.va <- tforcl.va[-c(1,2,3,4), ]
+sapply(tforcl.va ,class)
+tforcl.va$Fluvanna
 
+<- as.numeric(as.character(tforcl.va$Fluvanna))
 
 
 ### Monthly lumber price index (http://future.aae.wisc.edu/data/monthly_values/by_area/3367?area=US&grid=true&tab=prices)
@@ -72,8 +213,72 @@ lumber<- read.csv("http://future.aae.wisc.edu/data/monthly_values/by_area/3367.c
 lumber<- subset( lumber, select = -c(V1,V3) )
 lumber.ts <- ts(lumber, start = c(1996, 1), end = c(2015, 3), frequency = 12)
 
+#### Created deflated time-series
+library(zoo)
+m <- merge(lumber.ts = as.zoo(lumber.ts), cpi.ts = as.zoo(cpi.ts))
+
+m$real <- m$lumber.ts/m$cpi.ts
+m <- m[,-c(1,2)]
+lumber_real.ts <- ts(m, start = c(1996, 1), end = c(2015, 3), frequency = 12)
+
+## Detect outliers #################################################################################
+# http://www.jalobe.com:8080/blog/tsoutliers/
+####################################################################################################
+library(tsoutliers)
+lnlr.ts <- log(lumber_real.ts)
+ce <- calendar.effects(lnlr.ts)
+lumber.outlier <- tso(y = lnlr.ts, xreg = ce, cval = 3.5, 
+                      types = c("AO", "LS", "TC", "SLS"), maxit = 1, 
+                      remove.method = "bottom-up", tsmethod = "arima", 
+                      args.tsmethod = list(order = c(0, 1, 1), 
+                                           seasonal = list(order = c(0, 1, 1))))
+print(lumber.outlier)
+
+res2 <- tso(y = lnlr.ts, xreg = ce, 
+    types = c("AO", "LS", "TC", "SLS"), 
+    maxit = 1, remove.method = "bottom-up", tsmethod = "auto.arima", 
+    args.tsmethod = list(allowdrift = FALSE, D = 1, ic = "bic"))
+
+####################################################################################################
+plot(lumber_real.ts)
+ts.plot(lumber.ts,lumber_real.ts, gpars = list(col = c("black", "red")))
+
 stl.lumber <- stl(lumber.ts,s.window="periodic",robust=TRUE)    
 plot(stl.lumber)
+
+### Test for stationarity  #############################################################################################
+###  First differences are the change between one observation and the next. Seasonal differences are the change between
+###  one year to the next. (http://www.statosphere.com.au/check-time-series-stationary-r/)
+###  http://people.duke.edu/~rnau/whatuse.htm
+### Seasonal differences
+seasonplot(lumber.ts) 
+
+plot(diff(log(lumber.ts),12), xlab="Year",
+     ylab="Annual change in monthly log lumber sales")
+
+Acf(diff(log(lumber.ts),12))
+Pacf(diff(log(lumber.ts),12))
+#  The Ljung-Box test examines whether there is significant evidence for non-zero correlations at lags 1-20. 
+Box.test(diff(log(lumber.ts),12),lag=20,type="Ljung-Box")
+# The Augmented Dickey-Fuller (ADF) t-statistic test: small p-values suggest the data is stationary
+# https://www.otexts.org/fpp/8/1
+adf.test(diff(log(lumber.ts),12), alternative = "stationary")
+# Another popular unit root test is the Kwiatkowski-Phillips-Schmidt-Shin (KPSS) test. This reverses the hypotheses,
+# so the null-hypothesis is that the data are stationary.
+kpss.test(diff(log(lumber.ts),12))
+# determining whether seasonal differencing is required is nsdiffs() which uses seasonal unit root tests 
+x <- lumber.ts
+     ns <- nsdiffs(x)
+          if(ns > 0) {
+          xstar <- diff(x,lag=frequency(x),differences=ns)
+          } else {
+            xstar <- x
+          }
+          nd <- ndiffs(xstar)
+          if(nd > 0) {
+          xstar <- diff(xstar,differences=nd)
+          }
+#######################################################################################################################
 ### Univariate forecast models
 require(forecast)
 plot(forecast(ets(lumber.ts), 10))
@@ -91,12 +296,13 @@ ts.plot(lumber.ts, fore$pred, U, L, col=c(1,2,4,4), lty = c(1,1,2,2))
 #################################################################################################
 # Read excel file on interest rates from FHFA & Median county income from Census
 ################################################################################################
-### Method 1
-require(RCurl)
-require(gdata)
+install.packages("readxl")
+library(readxl)
+library(httr)
 
 url <- "http://www.fhfa.gov/DataTools/Downloads/Documents/Historical-Summary-Tables/MIRS_Table26_Monthly_2012.xls"
-irate <- read.xls(url)
+GET(url, write_disk("temp.xls", overwrite=TRUE))
+irate <- read_excel("temp.xls", col_names = FALSE, skip=11)
 head(irate)
 
 
@@ -104,6 +310,20 @@ head(irate)
 # http://bedfordco.dreamhosters.com/BedfordTax.xlsx
 # Richmond transfers and sales http://www.richmondgov.com/Assessor/ReportsPage.aspx
 
+#################################################################################################
+# Read excel file on 30-year commitment rate from the Fannie Mae and Freddie Mac (monthly, US)
+# http://www.netegrate.com/index_files/Research%20Library/Catalogue/Economics/Housing/Modeling%20Long-range%20Dependence%20in%20U.S.%20Housing%20Prices.pdf
+################################################################################################
+
+url4 <- "http://www.freddiemac.com/pmms/docs/30yr_pmmsmnth.xls"
+crate30 <- read.xls(url4)
+head(crate30)
+
+#################################################################################################
+# Read excel file on Single-Family Mortgage Originations, 1990 - 2011 Q2  
+# http://www.fhfa.gov/DataTools/Downloads/Pages/Current-Market-Data.aspx
+
+#http://www.fhfa.gov/DataTools/Downloads/Documents/Market-Data/SF_Mortgage_Originations_1990-2011Q2.xls
 
 #############################################################################################
 #####      Foreclosure risk
@@ -111,14 +331,24 @@ head(irate)
 #####      Historical data http://www.foreclosure-response.org/maps_and_data/hmda_data_2010.html
 #####      Vacancy rates from USPS http://www.huduser.org/portal/usps/index.html
 #############################################################################################
+
+
 urlfrorg <- "http://www.foreclosure-response.org/assets/hmda2011/hmda_state_VA_2011.xls"
-hmda11 <- read.xls(urlfrorg)
-head (hmda11)
+GET(urlfrorg, write_disk("temp1.xls", overwrite=TRUE))
+frorg <- read_excel("temp1.xls") #, col_names = FALSE, skip=11)
+head(frorg)
 
 
 ### Method 2
 install.packages("XLConnect")
 require(XLConnect)
+
+temp.irate = tempfile(fileext = ".xls")
+download.file(url = "http://www.fhfa.gov/DataTools/Downloads/Documents/Historical-Summary-Tables/MIRS_Table26_Monthly_2012.xlss",
+              destfile = temp.irate)
+
+mrate <- readWorksheetFromFile(temp.irate,sheet=1, startRow = 12)
+
 
 tmp13 = tempfile(fileext = ".xls")
 download.file(url = "http://www.census.gov/did/www/saipe/downloads/estmod13/est13ALL.xls", destfile = tmp13)
@@ -208,45 +438,7 @@ devtools::install_github("jennybc/googlesheets")
 library("googlesheets")
 suppressMessages(library("dplyr"))
 
-#################################################################################################
-# Get drom data repositories
-# Quandl 
-# St Louis FED (FRED)
-#################################################################################################
 
-require(Quandl)
-mydata = Quandl("FRED/GDPPOT", start_date="2005-01-03",end_date="2013-04-10",type="xts")
-#  or alternatively use quantmod
-install.packages("quantmod")
-require(quantmod)
-
-
-## St Louis FED
-## with API Key
-devtools::install_github("jcizel/FredR")
-require(FredR)
-require(ggplot2)
-api.key = 'd696e67c986a8c6cc318a551bf2166c3'
-fred <- FredR(api.key)
-str(fred,1)
-gdp.series <- fred$series.search("GDP")
-va.starts <- fred$series.search("VABP1FH")
-### Create a data frame of monthly housing starts
-vastart <- fred$series.observations(series_id = 'VABP1FH')
-#plot the result
-vastart %>%
-select(
-    date,
-    value
-) %>%
-mutate(
-    date = as.Date(date),
-    value = as.numeric(value)
-) ->
-    dt
-
-
-qplot(data = dt, x = date, y = value, geom = 'line')
 
 ################################################################
 # Use fread from the data.table package
@@ -262,3 +454,68 @@ read.url <- function(url, ...){
 
 read.url("https://www.gov.uk/government/uploads/system/uploads/attachment_data/file/246663/pmgiftsreceivedaprjun13.csv")
 
+#################################################################################################
+# Scrape data from webpages
+# Use rvest
+# http://www.charlottesvillerealestatebuzz.com/market-report/fluvanna-county-va-real-estate-market-report-june-2013/
+#################################################################################################
+
+install.packages("rvest")
+### Create loop for monthly reports by year
+require(rvest);require(RCurl); require(XML)
+months <- month.name
+n <- length(months) 
+links <- vector("list", length = n)
+result <- vector("list", length = n)
+
+for(i in 1:n){
+  print(i) # keep track of what the function is up to
+  # get all html on each page of the a-z index pages
+  
+  links[[i]]  <- htmlParse(paste0("http://www.charlottesvillerealestatebuzz.com/market-report/fluvanna-county-va-real-estate-market-report-", months[i], "-2014/"),encoding = "UTF-8")
+  xpath <- '//li'
+  result[[i]] <- xpathSApply(links[[i]], xpath,xmlValue)
+  result[[i]] <- result[[i]][c(13:17)]
+  assign(paste("hsmr2014",months[i],sep=""), as.data.frame(do.call(rbind, strsplit(result[[i]], ": "))))
+    
+  }
+
+total <- merge(hsmr2014January,hsmr2014February,by="V1")
+
+### clean up numbers column
+## Subset 2nd and 4th columns and apply to every item on list
+lines3 <-  lapply(lines, function(x) x[,2])
+## Remove quotation marks, percent sign and convert to number; apply to every item
+lines3 <-  lapply(lines3, function(x) {
+  x [,2 ] = gsub('\\(','',x[,2] )
+  x [,2 ] = gsub('%\\)','',x[,2])
+  x [,2 ] = as.numeric(x[,2])
+  x
+}
+)
+
+##make data frame as.data.frame(lines2)
+## Assign column names to all dataframes
+tb <- lapply(tb, setNames , nm = c("option", "percentage"))
+
+
+
+
+
+x <- lines2[2,2]
+x2 <- substring(x, 2)
+lines2[2,2] <- x2
+x3<- lines2[3,2]
+x4 <- substring(x3, 2)
+lines2[3,2] <- x4
+x5<- lines2[4,2]
+x6 <- substring(x5,1,5)
+lines2[4,2] <- x6
+###########################
+hsmr[j] <- as.data.frame(lines2)
+  }
+}
+
+hsmr.june2013$V2 <- as.numeric(str_replace_all(hsmr.june2013$V2, "[^[:alnum:]]", ""))
+hsmr.june2013[4,2] <- hsmr.june2013[4,2]/10000
+print (hsmr.june2013)
