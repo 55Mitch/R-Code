@@ -1,36 +1,32 @@
 
-
-
-### preparations ---------------------------------------------
+### preparations ------------------------------------------------------------------------------
 
 # clear workspace
 rm(list=ls(all=TRUE))
 
 # install and load packages
-pkgs <- c("RCurl", "XML", "stringr", "httr", "plyr", "ggplot2")
+pkgs <- c("RCurl", "XML", "stringr", "httr", "plyr", "ggplot2","Quandl", "RODBC","rvest"
+          "FredR","fpp","zoo", "tsoutliers", "forecast", "readxl", "httr","quantmod" )
+
+
 # install.packages(pkgs)
 lapply(pkgs, library, character.only=T)
 
-
+install.packages("devtools")
+devtools::install_github("jcizel/FredR")
+# Look at documentation
+vignette("RODBC")
 
 #################################################################################################
-# Get drom data repositories
+# Get from data repositories
 # Quandl 
 # St Louis FED (FRED)
 #################################################################################################
 
-require(Quandl)
 mydata = Quandl("FRED/GDPPOT", start_date="2005-01-03",end_date="2013-04-10",type="xts")
 #  or alternatively use quantmod
-install.packages("quantmod")
-require(quantmod)
-
-
 ## St Louis FED
 ## with API Key
-devtools::install_github("jcizel/FredR")
-require(FredR)
-require(ggplot2)
 api.key = 'd696e67c986a8c6cc318a551bf2166c3'
 fred <- FredR(api.key)
 str(fred,1)
@@ -41,14 +37,12 @@ mort <- fred$series.search("MORTG")
 ### Create a data frame of monthly housing starts
 vastart <- fred$series.observations(series_id = 'VABP1FH')
 ### Create a data frame of 30-Year Conventional Mortgage Rate #########################
-
 mortg  <- fred$series.observations(series_id = 'MORTG')
 mortg <- subset(mortg,date >= '1996-01-01')
 mortg$value <- as.numeric(mortg$value )/100
 ### COnvert interest rate to monthly payment per $1,000 borrowed, 30-year fixed
 mortg$mopay <- (mortg$value*(1+mortg$value)^30)/ (((1+mortg$value)^30) -1)*1000
 plot(log(mortg$mopay))
-
 ### Create a data frame of monthly cpi ################################################
 cpiindx <- fred$series.observations(series_id = 'CPIAUCSL')
 cpiindx <- subset(cpiindx,date >= '1996-01-01')
@@ -72,9 +66,7 @@ vastart %>%
   ) ->
   dt
 
-
 qplot(data = dt, x = date, y = value, geom = 'line')
-
 #################################################################################################
 #################################################################################################
 # Read csv file from NBER on marginal tax rates
@@ -111,7 +103,7 @@ msp.fl <- tmsp.va[1:226,"Fluvanna"]
 ### Clean data and remove outliers ##########################
 # http://robjhyndman.com/hyndsight/forecast5/
 ##############################################################
-library(fpp)
+
 plot(msp.fl, main="Median Sales Price, Fluvanna County")
 lines(, col='red')
 
@@ -120,7 +112,7 @@ fl.ts <- tsclean(msp.fl)
 fl.ts <- ts(fl.ts, start = c(1996, 4), end = c(2015, 1), frequency = 12)
 
 ### Inflation adjustment
-library(zoo)
+
 msp.merge <- merge(fl.ts = as.zoo(fl.ts), cpi.ts = as.zoo(cpi.ts))
 
 msp.merge$fl_real <- msp.merge$fl.ts/(msp.merge$cpi.ts)
@@ -147,19 +139,7 @@ plot(n)
 acf(n$time.series[,3])
 print(n)
 #AnomalyDetection (https://github.com/twitter/AnomalyDetection)
-
 fl.df <- data.frame( as.Date(time(fl.ts)),Y=as.matrix(fl.ts))
-
-
-
-install.packages("devtools")
-devtools::install_github("twitter/AnomalyDetection")
-library(AnomalyDetection)
-
-res = AnomalyDetectionTs(fl.df, max_anoms=0.02,direction='both', plot=TRUE)
-res = AnomalyDetectionVec(fl.df$Y, max_anoms=0.02,  period=20,direction='both', plot=TRUE)
-res$plot
-
 ########################################################################
 ## a univariate time series model  double exponential smooth with a damped trend.
 
@@ -214,7 +194,7 @@ lumber<- subset( lumber, select = -c(V1,V3) )
 lumber.ts <- ts(lumber, start = c(1996, 1), end = c(2015, 3), frequency = 12)
 
 #### Created deflated time-series
-library(zoo)
+
 m <- merge(lumber.ts = as.zoo(lumber.ts), cpi.ts = as.zoo(cpi.ts))
 
 m$real <- m$lumber.ts/m$cpi.ts
@@ -224,7 +204,7 @@ lumber_real.ts <- ts(m, start = c(1996, 1), end = c(2015, 3), frequency = 12)
 ## Detect outliers #################################################################################
 # http://www.jalobe.com:8080/blog/tsoutliers/
 ####################################################################################################
-library(tsoutliers)
+
 lnlr.ts <- log(lumber_real.ts)
 ce <- calendar.effects(lnlr.ts)
 lumber.outlier <- tso(y = lnlr.ts, xreg = ce, cval = 3.5, 
@@ -260,7 +240,7 @@ Acf(diff(log(lumber.ts),12))
 Pacf(diff(log(lumber.ts),12))
 #  The Ljung-Box test examines whether there is significant evidence for non-zero correlations at lags 1-20. 
 Box.test(diff(log(lumber.ts),12),lag=20,type="Ljung-Box")
-# The Augmented Dickey-Fuller (ADF) t-statistic test: small p-values suggest the data is stationary
+# The Augmented Dickey–Fuller (ADF) t-statistic test: small p-values suggest the data is stationary
 # https://www.otexts.org/fpp/8/1
 adf.test(diff(log(lumber.ts),12), alternative = "stationary")
 # Another popular unit root test is the Kwiatkowski-Phillips-Schmidt-Shin (KPSS) test. This reverses the hypotheses,
@@ -280,7 +260,7 @@ x <- lumber.ts
           }
 #######################################################################################################################
 ### Univariate forecast models
-require(forecast)
+
 plot(forecast(ets(lumber.ts), 10))
 
 fit <- arima(lumber.ts, order=c(1,0,0), list(order=c(2,1,0), period=12))
@@ -296,9 +276,7 @@ ts.plot(lumber.ts, fore$pred, U, L, col=c(1,2,4,4), lty = c(1,1,2,2))
 #################################################################################################
 # Read excel file on interest rates from FHFA & Median county income from Census
 ################################################################################################
-install.packages("readxl")
-library(readxl)
-library(httr)
+
 
 url <- "http://www.fhfa.gov/DataTools/Downloads/Documents/Historical-Summary-Tables/MIRS_Table26_Monthly_2012.xls"
 GET(url, write_disk("temp.xls", overwrite=TRUE))
@@ -320,7 +298,7 @@ crate30 <- read.xls(url4)
 head(crate30)
 
 #################################################################################################
-# Read excel file on Single-Family Mortgage Originations, 1990 - 2011 Q2  
+# Read excel file on Single-Family Mortgage Originations, 1990 – 2011 Q2  
 # http://www.fhfa.gov/DataTools/Downloads/Pages/Current-Market-Data.aspx
 
 #http://www.fhfa.gov/DataTools/Downloads/Documents/Market-Data/SF_Mortgage_Originations_1990-2011Q2.xls
@@ -393,9 +371,6 @@ hads2011 <- read.sas7bdat(unzip ("HUDdata.zip"))
 ## http://socds.huduser.org/permits/help.htm
 #######################################################################
 ### USE RODBS to read access file
-install.packages("RODBC")
-library(RODBC)
-vignette("RODBC")
 #################################
 download("http://socds.huduser.org/permits/bpdata4web.zip", dest="HUDdpermits.zip", mode="wb") 
 db <- unzip ("HUDdpermits.zip")
@@ -410,7 +385,7 @@ odbcCloseAll()
 perm.va <- subset(permitbymo,state=='51' & series=='1')
 perm.fl <- subset(perm.va,county=='65')
 perm.fl <- perm.fl[,c("year", "month", "permits")]
-library(plyr)
+
 perm.fl = arrange(perm.fl,year,month)
 perm.fl <- perm.fl[,"permits"]
 
@@ -459,63 +434,40 @@ read.url("https://www.gov.uk/government/uploads/system/uploads/attachment_data/f
 # Use rvest
 # http://www.charlottesvillerealestatebuzz.com/market-report/fluvanna-county-va-real-estate-market-report-june-2013/
 #################################################################################################
-
-install.packages("rvest")
 ### Create loop for monthly reports by year
-require(rvest);require(RCurl); require(XML)
+year <- seq(2013,2015,1)
+m <- length(year) 
+
+
 months <- month.name
 n <- length(months) 
 links <- vector("list", length = n)
 result <- vector("list", length = n)
 
+for (j in 1:m){
+
 for(i in 1:n){
   print(i) # keep track of what the function is up to
   # get all html on each page of the a-z index pages
   
-  links[[i]]  <- htmlParse(paste0("http://www.charlottesvillerealestatebuzz.com/market-report/fluvanna-county-va-real-estate-market-report-", months[i], "-2014/"),encoding = "UTF-8")
+  links[[i]]  <- htmlParse(paste0("http://www.charlottesvillerealestatebuzz.com/market-report/fluvanna-county-va-real-estate-market-report-", months[i], "-",year[j],"/"),encoding = "UTF-8")
   xpath <- '//li'
   result[[i]] <- xpathSApply(links[[i]], xpath,xmlValue)
   result[[i]] <- result[[i]][c(13:17)]
-  assign(paste("hsmr2014",months[i],sep=""), as.data.frame(do.call(rbind, strsplit(result[[i]], ": "))))
-    
-  }
-
-total <- merge(hsmr2014January,hsmr2014February,by="V1")
-
-### clean up numbers column
-## Subset 2nd and 4th columns and apply to every item on list
-lines3 <-  lapply(lines, function(x) x[,2])
-## Remove quotation marks, percent sign and convert to number; apply to every item
-lines3 <-  lapply(lines3, function(x) {
-  x [,2 ] = gsub('\\(','',x[,2] )
-  x [,2 ] = gsub('%\\)','',x[,2])
-  x [,2 ] = as.numeric(x[,2])
-  x
+  # clean up numbers
+  result[[i]] <- str_replace_all( result[[i]] , "\\$", "")
+  result[[i]] <- str_replace_all( result[[i]] , "%", "")
+  result[[i]] <- str_replace_all( result[[i]] , ",", "")
+  
+  result[[i]] <- as.data.frame(do.call(rbind, strsplit(result[[i]], ": ")),ncol=2)
+  result[[i]] <- setNames(result[[i]], c("item","value"))
 }
-)
+  
+  
+ 
+total[[j]]  <- cbind(result[[1]],result[[2]]$value,result[[3]]$value,result[[4]]$value,result[[5]]$value,
+            result[[6]]$value,result[[7]]$value,result[[8]]$value,result[[9]]$value,result[[10]]$value,
+            result[[11]]$value,result[[12]]$value )
 
-##make data frame as.data.frame(lines2)
-## Assign column names to all dataframes
-tb <- lapply(tb, setNames , nm = c("option", "percentage"))
-
-
-
-
-
-x <- lines2[2,2]
-x2 <- substring(x, 2)
-lines2[2,2] <- x2
-x3<- lines2[3,2]
-x4 <- substring(x3, 2)
-lines2[3,2] <- x4
-x5<- lines2[4,2]
-x6 <- substring(x5,1,5)
-lines2[4,2] <- x6
-###########################
-hsmr[j] <- as.data.frame(lines2)
-  }
 }
 
-hsmr.june2013$V2 <- as.numeric(str_replace_all(hsmr.june2013$V2, "[^[:alnum:]]", ""))
-hsmr.june2013[4,2] <- hsmr.june2013[4,2]/10000
-print (hsmr.june2013)
