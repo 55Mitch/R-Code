@@ -84,8 +84,8 @@ sapply(tmsp.va ,class)
 tmsp.va$Fluvanna <- as.numeric(as.character(tmsp.va$Fluvanna))
 tmsp.va$period = seq(as.Date("1996/4/1"), as.Date("2015/3/1"),"month")
 
-msp.fluvan <- tmsp.va[1:226,c("period","Fluvanna")]
-msp.fl <- tmsp.va[1:226,"Fluvanna"]
+msp.fluvan <- tmsp.va[1:228,c("period","Fluvanna")]
+msp.fl <- tmsp.va[1:228,"Fluvanna"]
 ## create time series object
 fl.ts <- tsclean(msp.fl)
 fl.ts <- ts(fl.ts, start = c(1996, 4), end = c(2015, 1), frequency = 12)
