@@ -95,6 +95,10 @@ fl14.ts <- tsclean(msp14.fl)
 fl.ts <- ts(fl.ts, start = c(1996, 4), end = c(2015, 1), frequency = 12)
 fl14.ts <- ts(fl14.ts, start = c(2014,1), end = c(2014, 12), frequency = 12)
 ################################################################################################
-pdf("Compare1.pdf",width=10,height=8)
+#pdf("Compare1.pdf",width=10,height=8)
 ts.plot(fl14.ts,hmr14.ts[,3],gpars = list(col = c("black", "red")))
-dev.off()
+#dev.off()
+#################################################################################################
+#  COMPARE WITH HUD
+#################################################################################################
+# https://www.onecpd.info/onecpd/assets/File/FY-2014-HOME-Homeownership-Value-Limits.xlsx
