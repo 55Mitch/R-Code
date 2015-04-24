@@ -6,7 +6,7 @@ pkgs <- c("RCurl", "XML", "stringr", "httr", "plyr", "ggplot2","rvest",
 # install.packages(pkgs)
 lapply(pkgs, library, character.only=T)
 
-install.packages("forecast")
+#install.packages("forecast")
 library(forecast)
 
 #################################################################################################
