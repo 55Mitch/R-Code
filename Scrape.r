@@ -85,11 +85,16 @@ tmsp.va$Fluvanna <- as.numeric(as.character(tmsp.va$Fluvanna))
 tmsp.va$period = seq(as.Date("1996/4/1"), as.Date("2015/3/1"),"month")
 
 msp.fluvan <- tmsp.va[1:228,c("period","Fluvanna")]
+
 msp.fl <- tmsp.va[1:228,"Fluvanna"]
+msp14.fl <- tmsp.va[213:225,"Fluvanna"]
 ## create time series object
 fl.ts <- tsclean(msp.fl)
+fl14.ts <- tsclean(msp14.fl)
+
 fl.ts <- ts(fl.ts, start = c(1996, 4), end = c(2015, 1), frequency = 12)
+fl14.ts <- ts(fl14.ts, start = c(2014,1), end = c(2014, 12), frequency = 12)
 ################################################################################################
 pdf("Compare1.pdf",width=10,height=8)
-ts.plot(fl.ts,hmr14.ts[,3],gpars = list(col = c("black", "red")))
+ts.plot(fl14.ts,hmr14.ts[,3],gpars = list(col = c("black", "red")))
 dev.off()
