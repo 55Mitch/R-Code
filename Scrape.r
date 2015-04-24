@@ -1,4 +1,3 @@
-
 # install and load packages
 pkgs <- c("RCurl", "XML", "stringr", "httr", "plyr", "ggplot2","rvest",
           "zoo", "httr" )
@@ -6,6 +5,10 @@ pkgs <- c("RCurl", "XML", "stringr", "httr", "plyr", "ggplot2","rvest",
 
 # install.packages(pkgs)
 lapply(pkgs, library, character.only=T)
+
+install.packages("forecast")
+library(forecast)
+
 #################################################################################################
 # Scrape data from webpages
 # Use rvest
@@ -62,11 +65,31 @@ head(hmr14)
 sapply(hmr14 ,class)
 hmr14.ts <- ts(hmr14, start = c(2014, 1), end = c(2014, 12), frequency = 12)
 
+#################################################################################################
+#  COMPARE WITH ZILLOW DATA
+#################################################################################################
+# Read csv file from Zillow on median sales price by county
+#################################################################################################
+msp <- read.csv("http://files.zillowstatic.com/research/public/County/County_MedianSoldPrice_AllHomes.csv",stringsAsFactors = FALSE)
+head(msp)
+msp.va <- subset(msp,StateCodeFIPS=='51')
+name <- msp.va$RegionName
+# transpose all but the first column (name)
+tmsp.va <- as.data.frame(t(msp.va[,-1]))
+length(tmsp.va)
+colnames(tmsp.va) <- name
+rownames(tmsp.va) <- NULL
+tmsp.va <- tmsp.va[-c(1,2,3,4), ]
+sapply(tmsp.va ,class)
+tmsp.va$Fluvanna <- as.numeric(as.character(tmsp.va$Fluvanna))
+tmsp.va$period = seq(as.Date("1996/4/1"), as.Date("2015/3/1"),"month")
 
-
-ts.plot(hmr13.ts[,1],hmr14.ts[,1])
-
-
-
-
-
+msp.fluvan <- tmsp.va[1:226,c("period","Fluvanna")]
+msp.fl <- tmsp.va[1:226,"Fluvanna"]
+## create time series object
+fl.ts <- tsclean(msp.fl)
+fl.ts <- ts(fl.ts, start = c(1996, 4), end = c(2015, 1), frequency = 12)
+################################################################################################
+pdf("Compare1.pdf",width=10,height=8)
+ts.plot(fl.ts,hmr14.ts[,3],gpars = list(col = c("black", "red")))
+dev.off()
