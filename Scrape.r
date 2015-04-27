@@ -1,13 +1,17 @@
 # install and load packages
 pkgs <- c("RCurl", "XML", "stringr", "httr", "plyr", "ggplot2","rvest",
-          "zoo", "httr" )
-
+          "zoo", "httr", "mgcv","gamair") 
 
 # install.packages(pkgs)
 lapply(pkgs, library, character.only=T)
 
-#install.packages("forecast")
+install.packages("forecast")
 library(forecast)
+
+install.packages("googleVis")
+library(googleVis)
+
+#vignette("googleVis")
 
 #################################################################################################
 # Scrape data from webpages
@@ -98,7 +102,19 @@ fl14.ts <- ts(fl14.ts, start = c(2014,1), end = c(2014, 12), frequency = 12)
 #pdf("Compare1.pdf",width=10,height=8)
 ts.plot(fl14.ts,hmr14.ts[,3],gpars = list(col = c("black", "red")))
 #dev.off()
+### Use Goodle charts
+df1 <- data.frame(Y=as.matrix(fl14.ts), date=time(fl14.ts))
+df2 <- data.frame(Y=as.matrix(hmr14.ts), date=time(hmr14.ts))
+
+#####
+Line1 <- gvisLineChart(df1)
+plot(Line1)
 #################################################################################################
 #  COMPARE WITH HUD
 #################################################################################################
 # https://www.onecpd.info/onecpd/assets/File/FY-2014-HOME-Homeownership-Value-Limits.xlsx
+#################################################################################################
+# TREND ANALYSIS
+# http://stats.stackexchange.com/questions/9506/stl-trend-of-time-series-using-r
+#################################################################################################
+
