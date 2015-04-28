@@ -132,8 +132,7 @@ fl.ts <- tsclean(msp.fl)
 ##### Use later in analysis
 ### Deflate ?????????????
 flvec  = unclass(fl.ts)
-fl14.ts <- tsclean(msp14.fl)
-fl13.ts <- tsclean(msp13.fl)
+fl.ts <- tsclean(fl.ts)
 
 fl.ts <- ts(fl.ts, start = c(1996, 4), end = c(2015, 1), frequency = 12)
 #subset the time series using window commd
