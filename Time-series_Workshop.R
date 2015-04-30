@@ -135,9 +135,7 @@ flvec  = unclass(fl.ts)
 fl.ts <- ts(fl.ts, start = c(1996, 4), end = c(2015, 1), frequency = 12)
 #subset the time series using window commd
 fl14.ts <- window(fl.ts, start = c(2014,1), end = c(2014, 12))
-fl13.ts <- window(fl13.ts, start = c(2013,1), end = c(2013, 12))
-
-fit = stl(house2, s.window="periodic")
+fl13.ts <- window(fl.ts, start = c(2013,1), end = c(2013, 12))
 
 ################################################################################################
 #pdf("Compare1.pdf",width=10,height=8)
@@ -169,8 +167,8 @@ df6$time <- seq(1:24)
 
 #################################################################################################
 #  COMPARE WITH HUD
-#################################################################################################
 # https://www.onecpd.info/onecpd/assets/File/FY-2014-HOME-Homeownership-Value-Limits.xlsx
+#################################################################################################
 #################################################################################################
 #  Exploratory Data Analysis (EDA)
 #  Exploratory analysis for time series mainly involves visualization with time series
@@ -217,6 +215,39 @@ plot(lret.mspfl)
 #  values) with respect to the previous month.  There appears to be no dependency which could be
 #  exploited to predict next months sales price based on the current month and/or previous months.
 #  There does appear to be some volatility clustering 
+#################################################################################################
+##### Use foreclosre sales percent as explnatory variable (Note only have VA not county)
+forpct <- read.csv("http://files.zillowstatic.com/research/public/State/State_PctTransactionsThatArePreviouslyForeclosuredHomes_AllHomes.csv",stringsAsFactors = FALSE)
+head(forpct)
+forpct.va  <- subset(forpct,RegionName=='Virginia')
+name <- forpct.va$RegionName
+# transpose all but the first column (name)
+tforpct.va  <- as.data.frame(t(forpct.va [,-1]))
+length(tforpct.va)
+colnames(tforpct.va) <- name
+rownames(tforpct.va) <- NULL
+sapply(tforpct.va ,class)
+fclva <- tforpct.va[1:207,"Virginia"]
+fclva.ts <-tsclean(fclva)
+fclva.ts <- ts(fclva.ts, start = c(1996, 4), end = c(2015, 1), frequency = 12)
+plot(fclva.ts)
+## Indexing the series
+I_fclva.ts <- fclva.ts/fclva.ts[207]*100 
+I_fl.ts <- fl.ts/fl.ts[207]*100
+## Plotting in one single frame
+ts.plot(I_fclva.ts, ylab="Index", col="red")
+title("Indexed Sales Price and Foreclosure share of sales")
+lines(I_fl.ts, col="blue")
+#  In the indexed single frame plot, we can very well judge the relative development of the
+#  series over time. The extreme jump in forclosure activity beginning in 2008 is evident.
+#################################################################################################
+#  Histogram
+ hist(fl.ts, col="lightblue") 
+# Q-Q plot
+qqnorm(fl.ts, pch=20); qqline(fl.ts, col="blue") 
+#  Seasonal differencing
+sd.fl <- diff(fl.ts, lag=12)
+plot(sd.fl, main="Differenced Zillio Sales Data (p=12)") 
 #################################################################################################
 # TREND ANALYSIS
 # http://stats.stackexchange.com/questions/9506/stl-trend-of-time-series-using-r
@@ -270,18 +301,7 @@ plot(fit2)
 # http://static.googleusercontent.com/media/research.google.com/en/us/pubs/archive/41854.pdf
 # https://groups.google.com/forum/#!forum/causalimpact
 #################################################################################################
-##### Use foreclosre sales percent as explnatory variable (Note only have VA not county)
-forpct <- read.csv("http://files.zillowstatic.com/research/public/State/State_PctTransactionsThatArePreviouslyForeclosuredHomes_AllHomes.csv",stringsAsFactors = FALSE)
-head(forpct)
-forpct.va  <- subset(forpct,RegionName=='Virginia')
-name <- forpct.va$RegionName
-# transpose all but the first column (name)
-tforpct.va  <- as.data.frame(t(forpct.va [,-1]))
-length(tforpct.va)
-colnames(tforpct.va) <- name
-rownames(tforpct.va) <- NULL
-sapply(tforpct.va ,class)
-length(tforpct.va)
+
 #################################################################################################
 #  Use inventory as explnatory variable (ONLY HAVE 2010-FORWARD)
 #################################################################################################
