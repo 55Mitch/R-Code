@@ -19,7 +19,127 @@ devtools::install_github("google/CausalImpact")
 library(CausalImpact)
 
 #################################################################################################
-# Scrape data from webpages
+#  LOAD ZILLOW DATA
+#################################################################################################
+# Read csv file from Zillow on median sales price by county
+#################################################################################################
+msp <- read.csv("http://files.zillowstatic.com/research/public/County/County_MedianSoldPrice_AllHomes.csv",stringsAsFactors = FALSE)
+head(msp)
+msp.va <- subset(msp,StateCodeFIPS=='51')
+msp.va <- msp.va[,-c(2,3, 5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26), ]
+name <- msp.va$RegionName
+# transpose all but the first column (name)
+tmsp.va <- as.data.frame(t(msp.va[,-1]))
+length(tmsp.va)
+colnames(tmsp.va) <- name
+rownames(tmsp.va) <- NULL
+tmsp.va <- tmsp.va[-c(1), ]
+sapply(tmsp.va ,class)
+tmsp.va$Fluvanna <- as.numeric(as.character(tmsp.va$Fluvanna))
+tmsp.va$period = seq(as.Date("1998/1/1"), as.Date("2015/3/3"),"month")
+
+msp.fluvan <- tmsp.va[1:207,c("period","Fluvanna")]
+msp.fl <- tmsp.va[1:207,"Fluvanna"]
+################################################
+## create time series object
+## deal with NA's
+## why missing--no sales that month?
+#################################################
+fl.ts <- tsclean(msp.fl)
+##### Use later in analysis
+flvec  = unclass(fl.ts)
+
+fl.ts <- ts(fl.ts, start = c(1996, 4), end = c(2015, 1), frequency = 12)
+#subset the time series using window commd
+fl14.ts <- window(fl.ts, start = c(2014,1), end = c(2014, 12))
+fl13.ts <- window(fl.ts, start = c(2013,1), end = c(2013, 12))
+
+
+#################################################################################################
+#  Exploratory Data Analysis (EDA)
+#  Exploratory analysis for time series mainly involves visualization with time series
+#  plots, decomposition of the series into deterministic and stochastic parts, and
+#  studying the dependency structure in the data. 
+#  There has been comparatively little research on how to support the
+#  more elaborate tasks typically associated with the exploratory visual
+#  analysis of time-series, e.g., visualizing derived values, identifying
+#  correlations, or identifying anomalies beyond obvious outliers. 
+#        
+#################################################################################################
+# Interative = Dygraphs (http://www.htmlwidgets.org/showcase_dygraphs.html)
+# http://walkerke.github.io/2014/12/dygraphs/
+#################################################################################################
+install.packages("dygraph")
+library(dygraphs)
+
+dygraph(msp.fl, main = "Fluvanna County Median Sales Prices") %>% 
+  dyRangeSelector(dateWindow = c("1998-01-01", "2014-12-01"))
+
+### Deflate ?????????????
+#################################################################################################
+# Looking at the time-series
+plot(fl.ts)
+#  Not surprisingly for monthly economic data, the series shows both seasonal
+#  variation and a non-linear trend.
+#  What happensif you deflate the series?
+#################################################################################################
+# is there any stochastic cyclic behavior? 
+ plot(fl.ts[1:206], fl.ts[2:207], pch=20, col = c("blue","red")) 
+ title("Scatterplot of Zillow Median Monthly Sales Price Data with Lag 1") 
+# compute the value of the Pearson correlation coefficient:
+  cor(fl.ts[1:206], fl.ts[2:207]) 
+#  there seems to be homogeneity, in that there are not two disticnt groups over the time period
+#  there is a positive correlation between successive measurements as one might expect in 
+#  monthly house sales and the notion of "comps"
+#  the series seems to always have the possibility of “reverting to the other side of the mean”,
+#  a property which is common to stationary series
+#################################################################################################
+# Is thee serial correlation
+lret.mspfl <- diff (log(fl.ts))
+plot(lret.mspfl)
+#  The SMI log-returns are a close approximation to the relative change (percent
+#  values) with respect to the previous month.  There appears to be no dependency which could be
+#  exploited to predict next months sales price based on the current month and/or previous months.
+#  There does appear to be some volatility clustering 
+#################################################################################################
+##### Use foreclosre sales percent as explnatory variable (Note only have VA not county)
+forpct <- read.csv("http://files.zillowstatic.com/research/public/State/State_PctTransactionsThatArePreviouslyForeclosuredHomes_AllHomes.csv",stringsAsFactors = FALSE)
+head(forpct)
+forpct.va  <- subset(forpct,RegionName=='Virginia')
+name <- forpct.va$RegionName
+# transpose all but the first column (name)
+tforpct.va  <- as.data.frame(t(forpct.va [,-1]))
+length(tforpct.va)
+colnames(tforpct.va) <- name
+rownames(tforpct.va) <- NULL
+sapply(tforpct.va ,class)
+fclva <- tforpct.va[1:207,"Virginia"]
+fclva.ts <-tsclean(fclva)
+fclva.ts <- ts(fclva.ts, start = c(1996, 4), end = c(2015, 1), frequency = 12)
+plot(fclva.ts)
+## Indexing the series
+I_fclva.ts <- fclva.ts/fclva.ts[207]*100 
+I_fl.ts <- fl.ts/fl.ts[207]*100
+## Plotting in one single frame
+ts.plot(I_fclva.ts, ylab="Index", col="red")
+title("Indexed Sales Price and Foreclosure share of sales")
+lines(I_fl.ts, col="blue")
+#  In the indexed single frame plot, we can very well judge the relative development of the
+#  series over time. The extreme jump in forclosure activity beginning in 2008 is evident.
+#################################################################################################
+#  Histogram
+ hist(fl.ts, col="lightblue") 
+# Q-Q plot
+qqnorm(fl.ts, pch=20); qqline(fl.ts, col="blue") 
+#  Seasonal differencing
+#  Housing sales, FLuvanna
+sd.fl <- diff(fl.ts, lag=12)
+plot(sd.fl, main="Differenced Zillio Sales Data (p=12)") 
+# Let's take a closer look at the last several years
+plot( window(fl.ts, start = c(2012,1), end = c(2014, 12)), main="Differenced Zillio Sales Data (p=12), last few years") 
+# Is there a data anomaly?
+#################################################################################################
+# MLS data, scrape from webpages
 # Use rvest
 # http://www.charlottesvillerealestatebuzz.com/market-report/fluvanna-county-va-real-estate-market-report-june-2013/
 #################################################################################################
@@ -100,154 +220,10 @@ hmrall[7,3] <- 184781
 hmrall[7,4] <- 94.64
 hmrall[7,5] <- 90
 hmrall[7,]
-
-#################################################################################################
-#  COMPARE WITH ZILLOW DATA
-#################################################################################################
-# Read csv file from Zillow on median sales price by county
-#################################################################################################
-msp <- read.csv("http://files.zillowstatic.com/research/public/County/County_MedianSoldPrice_AllHomes.csv",stringsAsFactors = FALSE)
-head(msp)
-msp.va <- subset(msp,StateCodeFIPS=='51')
-msp.va <- msp.va[,-c(2,3, 5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26), ]
-name <- msp.va$RegionName
-# transpose all but the first column (name)
-tmsp.va <- as.data.frame(t(msp.va[,-1]))
-length(tmsp.va)
-colnames(tmsp.va) <- name
-rownames(tmsp.va) <- NULL
-tmsp.va <- tmsp.va[-c(1), ]
-sapply(tmsp.va ,class)
-tmsp.va$Fluvanna <- as.numeric(as.character(tmsp.va$Fluvanna))
-tmsp.va$period = seq(as.Date("1998/1/1"), as.Date("2015/3/3"),"month")
-
-msp.fluvan <- tmsp.va[1:207,c("period","Fluvanna")]
-msp.fl <- tmsp.va[1:207,"Fluvanna"]
-################################################
-## create time series object
-## deal with NA's
-## why missing--no sales that month?
-#################################################
-fl.ts <- tsclean(msp.fl)
-##### Use later in analysis
-flvec  = unclass(fl.ts)
-
-fl.ts <- ts(fl.ts, start = c(1996, 4), end = c(2015, 1), frequency = 12)
-#subset the time series using window commd
-fl14.ts <- window(fl.ts, start = c(2014,1), end = c(2014, 12))
-fl13.ts <- window(fl.ts, start = c(2013,1), end = c(2013, 12))
-
-################################################################################################
-#pdf("Compare1.pdf",width=10,height=8)
-ts.plot(fl14.ts,hmr14.ts[,3],gpars = list(col = c("black", "red")))
-#dev.off()
-### Use Goodle charts
-df1 <- data.frame(Y=as.matrix(fl14.ts),date= as.Date(fl14.ts))
-df1$month.of.year <- seq(1:12)
-df1$year=2014
-df2 <- data.frame(Y=as.matrix(fl13.ts),date= as.Date(fl13.ts))
-df2$month.of.year <- seq(1:12)
-df2$year=2013
-df3 <- rbind_all(list(df1,df2))
-df3$time <- seq(1:24)
-################################################################################################
-df4 <- data.frame(Y=as.matrix(hmr14.ts), date= as.Date(hmr14.ts))
-df4$month.of.year <- seq(1:12)
-df4$year=2014
-df5 <- data.frame(Y=as.matrix(hmr13.ts), date= as.Date(hmr13.ts))
-df5$month.of.year <- seq(1:12)
-df5$year=2013
-df6 <- rbind_all(list(df4,df5))
-df6$time <- seq(1:24)
-#################################################################################################
-#####  Plot using Google charts
-#Line1 <- gvisLineChart(df1)
-#plot(Line1)
-#### 
-
-#################################################################################################
-#  COMPARE WITH HUD
-# https://www.onecpd.info/onecpd/assets/File/FY-2014-HOME-Homeownership-Value-Limits.xlsx
-#################################################################################################
-#################################################################################################
-#  Exploratory Data Analysis (EDA)
-#  Exploratory analysis for time series mainly involves visualization with time series
-#  plots, decomposition of the series into deterministic and stochastic parts, and
-#  studying the dependency structure in the data. 
-#  There has been comparatively little research on how to support the
-#  more elaborate tasks typically associated with the exploratory visual
-#  analysis of time-series, e.g., visualizing derived values, identifying
-#  correlations, or identifying anomalies beyond obvious outliers. 
-#        
-#################################################################################################
-# Interative = Dygraphs (http://www.htmlwidgets.org/showcase_dygraphs.html)
-# http://walkerke.github.io/2014/12/dygraphs/
-#################################################################################################
-install.packages("dygraph")
-library(dygraphs)
-
-dygraph(msp.fl, main = "Fluvanna County Median Sales Prices") %>% 
-  dyRangeSelector(dateWindow = c("1998-01-01", "2014-12-01"))
-
-### Deflate ?????????????
-#################################################################################################
-# Looking at the time-series
-plot(fl.ts)
-#  Not surprisingly for monthly economic data, the series shows both seasonal
-#  variation and a non-linear trend.
-#  What happensif you deflate the series?
-#################################################################################################
-# is there any stochastic cyclic behavior? 
- plot(fl.ts[1:206], fl.ts[2:207], pch=20, col = c("blue","red")) 
- title("Scatterplot of Zillow Median Monthly Sales Price Data with Lag 1") 
-# compute the value of the Pearson correlation coefficient:
-  cor(fl.ts[1:206], fl.ts[2:207]) 
-#  there seems to be homogeneity, in that there are not two disticnt groups over the time period
-#  there is a positive correlation between successive measurements as one might expect in 
-#  monthly house sales and the notion of "comps"
-#  the series seems to always have the possibility of “reverting to the other side of the mean”,
-#  a property which is common to stationary series
-#################################################################################################
-# Is thee serial correlation
-lret.mspfl <- diff (log(fl.ts))
-plot(lret.mspfl)
-#  The SMI log-returns are a close approximation to the relative change (percent
-#  values) with respect to the previous month.  There appears to be no dependency which could be
-#  exploited to predict next months sales price based on the current month and/or previous months.
-#  There does appear to be some volatility clustering 
-#################################################################################################
-##### Use foreclosre sales percent as explnatory variable (Note only have VA not county)
-forpct <- read.csv("http://files.zillowstatic.com/research/public/State/State_PctTransactionsThatArePreviouslyForeclosuredHomes_AllHomes.csv",stringsAsFactors = FALSE)
-head(forpct)
-forpct.va  <- subset(forpct,RegionName=='Virginia')
-name <- forpct.va$RegionName
-# transpose all but the first column (name)
-tforpct.va  <- as.data.frame(t(forpct.va [,-1]))
-length(tforpct.va)
-colnames(tforpct.va) <- name
-rownames(tforpct.va) <- NULL
-sapply(tforpct.va ,class)
-fclva <- tforpct.va[1:207,"Virginia"]
-fclva.ts <-tsclean(fclva)
-fclva.ts <- ts(fclva.ts, start = c(1996, 4), end = c(2015, 1), frequency = 12)
-plot(fclva.ts)
-## Indexing the series
-I_fclva.ts <- fclva.ts/fclva.ts[207]*100 
-I_fl.ts <- fl.ts/fl.ts[207]*100
-## Plotting in one single frame
-ts.plot(I_fclva.ts, ylab="Index", col="red")
-title("Indexed Sales Price and Foreclosure share of sales")
-lines(I_fl.ts, col="blue")
-#  In the indexed single frame plot, we can very well judge the relative development of the
-#  series over time. The extreme jump in forclosure activity beginning in 2008 is evident.
-#################################################################################################
-#  Histogram
- hist(fl.ts, col="lightblue") 
-# Q-Q plot
-qqnorm(fl.ts, pch=20); qqline(fl.ts, col="blue") 
 #  Seasonal differencing
-sd.fl <- diff(fl.ts, lag=12)
-plot(sd.fl, main="Differenced Zillio Sales Data (p=12)") 
+sd.hmr <- diff(hmrall, lag=12)
+plot(sd.hmr)
+################################################################################################
 #################################################################################################
 # TREND ANALYSIS
 # http://stats.stackexchange.com/questions/9506/stl-trend-of-time-series-using-r
