@@ -175,7 +175,7 @@ qqnorm(fl.ts, pch=20); qqline(fl.ts, col="blue")
 sd.fl <- diff(fl.ts, lag=12)
 plot(sd.fl, main="Differenced Zillio Sales Data (p=12)") 
 # Let's take a closer look at the last several years
-plot( window(fl.ts, start = c(2012,1), end = c(2014, 12)), main="Differenced Zillow Sales Data (p=12), last few years") 
+plot( window(sd.fl, start = c(2012,1), end = c(2014, 12)), main="Differenced Zillow Sales Data (p=12), last few years") 
 # Is there a data anomaly?
 #################################################################################################
 # MLS data, scrape from webpages
@@ -259,9 +259,12 @@ hmrall[7,3] <- 184781
 hmrall[7,4] <- 94.64
 hmrall[7,5] <- 90
 hmrall[7,]
+
+hmrall.ts <- ts(hmrall, start = c(2012,1), end = c(2014, 12), frequency = 12)
 #  Seasonal differencing
-sd.hmr <- diff(hmrall, lag=12)
+sd.hmr <- diff(hmrall.ts[,3], lag=12)
 plot(sd.hmr)
+lines (sd.fl[72:207])
 ################################################################################################
 #################################################################################################
 # TREND ANALYSIS
