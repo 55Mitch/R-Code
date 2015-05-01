@@ -118,6 +118,8 @@ plot(log(fl_real.ts), main="Log of Real Median Sales Price, Fluvanna County")
 # stationary in mean
 tsdisplay(diff(log(fl_real.ts)))
 seasonplot(fl_real.ts,col=rainbow(12),year.labels=TRUE)
+sd.rfl <- diff(fl_real.ts, lag=12)
+plot(sd.rfl, main="Differenced Deflated Zillow Sales Data (p=12)") 
 #################################################################################################
 # is there any stochastic cyclic behavior? 
 #################################################################################################
@@ -173,7 +175,7 @@ qqnorm(fl.ts, pch=20); qqline(fl.ts, col="blue")
 sd.fl <- diff(fl.ts, lag=12)
 plot(sd.fl, main="Differenced Zillio Sales Data (p=12)") 
 # Let's take a closer look at the last several years
-plot( window(fl.ts, start = c(2012,1), end = c(2014, 12)), main="Differenced Zillio Sales Data (p=12), last few years") 
+plot( window(fl.ts, start = c(2012,1), end = c(2014, 12)), main="Differenced Zillow Sales Data (p=12), last few years") 
 # Is there a data anomaly?
 #################################################################################################
 # MLS data, scrape from webpages
