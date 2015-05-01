@@ -101,6 +101,19 @@ cpiindx$value <-  as.numeric(cpiindx$value) / base
 cpi.ts1 <- ts(cpiindx, start = c(1998, 1), end = c(2014, 12), frequency = 12)
 cpi.ts2 <- cpi.ts1[!is.na(cpi.ts1)]
 cpi.ts <- ts(cpi.ts2, start = c(1998, 1), end = c(2014, 12), frequency = 12)
+### Inflation adjustment
+##########################################
+msp.merge <- merge(fl.ts = as.zoo(fl.ts), cpi.ts = as.zoo(cpi.ts))
+msp.merge$fl_real <- msp.merge$fl.ts/(msp.merge$cpi.ts)
+msp.merge <- msp.merge[,-c(1:2)]
+
+fl_real.ts <- ts(msp.merge, start = c(1998, 1), end = c(2014, 12), frequency = 12)
+## Data examine #################################################################################
+#  http://yunus.hacettepe.edu.tr/~iozkan/eco665/archgarch.html
+plot(log(fl_real.ts), main="Log of Real Median Sales Price, Fluvanna County")
+# stationary in mean
+tsdisplay(diff(log(fl_real.ts)))
+seasonplot(fl_real.ts,col=rainbow(12),year.labels=TRUE)
 #################################################################################################
 # is there any stochastic cyclic behavior? 
 #################################################################################################
