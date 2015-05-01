@@ -41,7 +41,7 @@ rownames(tmsp.va) <- NULL
 tmsp.va <- tmsp.va[-c(1), ]
 sapply(tmsp.va ,class)
 tmsp.va$Fluvanna <- as.numeric(as.character(tmsp.va$Fluvanna))
-tmsp.va$period = seq(as.Date("1998/1/1"), as.Date("2015/3/3"),"month")
+tmsp.va$period = seq(as.Date("1998/1/1"), as.Date("2014/12/1"),"month")
 
 msp.fluvan <- tmsp.va[1:207,c("period","Fluvanna")]
 msp.fl <- tmsp.va[1:207,"Fluvanna"]
@@ -57,7 +57,7 @@ fl.ts <- tsclean(msp.fl)
 ##### Use later in analysis
 flvec  = unclass(fl.ts)
 
-fl.ts <- ts(fl.ts, start = c(1996, 4), end = c(2015, 1), frequency = 12)
+fl.ts <- ts(fl.ts, start = c(1998, 1), end = c(2014, 12), frequency = 12)
 #subset the time series using window commd
 fl14.ts <- window(fl.ts, start = c(2014,1), end = c(2014, 12))
 fl13.ts <- window(fl.ts, start = c(2013,1), end = c(2013, 12))
@@ -88,12 +88,16 @@ plot(fl.ts)
 #  What happensif you deflate the series?
 #################################################################################################
 ## St Louis FED with API Key (environment variable FREDapi.key)
+install.packages("devtools")
+devtools::install_github("jcizel/FredR")
+require(FredR)
+FREDapi.key <- 'd696e67c986a8c6cc318a551bf2166c3'
 fred <- FredR(FREDapi.key)
 str(fred,1)
 cpi <-  fred$series.search("CPIAUCSL")
 ### Create a data frame of monthly cpi ################################################
 cpiindx <- fred$series.observations(series_id = 'CPIAUCSL')
-cpiindx <- subset(cpiindx,date >= '1996-01-01')
+cpiindx <- subset(cpiindx,date >= '1998-01-01')
 #### Reference 1-1-2010 217.488=100
 base = 217.488
 cpiindx$value <-  as.numeric(cpiindx$value) / base
@@ -117,10 +121,10 @@ seasonplot(fl_real.ts,col=rainbow(12),year.labels=TRUE)
 #################################################################################################
 # is there any stochastic cyclic behavior? 
 #################################################################################################
- plot(fl.ts[1:206], fl.ts[2:207], pch=20, col = c("blue","red")) 
- title("Scatterplot of Zillow Median Monthly Sales Price Data with Lag 1") 
+plot(fl.ts[1:206], fl.ts[2:207], pch=20, col = c("blue","red")) 
+title("Scatterplot of Zillow Median Monthly Sales Price Data with Lag 1") 
 # compute the value of the Pearson correlation coefficient:
-  cor(fl.ts[1:206], fl.ts[2:207]) 
+cor(fl.ts[1:206], fl.ts[2:207]) 
 #  there seems to be homogeneity, in that there are not two disticnt groups over the time period
 #  there is a positive correlation between successive measurements as one might expect in 
 #  monthly house sales and the notion of "comps"
@@ -161,7 +165,7 @@ lines(I_fl.ts, col="blue")
 #  series over time. The extreme jump in forclosure activity beginning in 2008 is evident.
 #################################################################################################
 #  Histogram
- hist(fl.ts, col="lightblue") 
+hist(fl.ts, col="lightblue") 
 # Q-Q plot
 qqnorm(fl.ts, pch=20); qqline(fl.ts, col="blue") 
 #  Seasonal differencing
@@ -392,8 +396,4 @@ impact2 <- CausalImpact(data4, pre.period, post.period,model.args = list(nseason
 #plot(impact2)
 #summary(impact2)
 #summary(impact2, "report")
-
-################################################################################################
-# Use vacancy rate as explanatory variable
-
 
