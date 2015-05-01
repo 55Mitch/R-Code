@@ -1,3 +1,8 @@
+#################################################################################################
+#  Note: need to create presentation with RStudio, knitr, pandoc and slidy when completed
+#  For example:  https://gist.github.com/mages/2816027
+#
+#################################################################################################
 #--------------------------------------------------------------------#
 # Hypothesis:  Distressed home sales (foreclosure, short-sales) have
 # had a large and sustained impact on the sales price of exisiting 
@@ -40,6 +45,9 @@ tmsp.va$period = seq(as.Date("1998/1/1"), as.Date("2015/3/3"),"month")
 
 msp.fluvan <- tmsp.va[1:207,c("period","Fluvanna")]
 msp.fl <- tmsp.va[1:207,"Fluvanna"]
+#################################################################################################
+# DATA CLEANING: you should clean your data with scripts. By using scripts, you recorded all of your
+# history about data cleaning. You should also make comments about why you changed your data.
 ################################################
 ## create time series object
 ## deal with NA's
@@ -53,10 +61,8 @@ fl.ts <- ts(fl.ts, start = c(1996, 4), end = c(2015, 1), frequency = 12)
 #subset the time series using window commd
 fl14.ts <- window(fl.ts, start = c(2014,1), end = c(2014, 12))
 fl13.ts <- window(fl.ts, start = c(2013,1), end = c(2013, 12))
-
-
 #################################################################################################
-#  Exploratory Data Analysis (EDA)
+#  Visualization & Exploratory Data Analysis (EDA)
 #  Exploratory analysis for time series mainly involves visualization with time series
 #  plots, decomposition of the series into deterministic and stochastic parts, and
 #  studying the dependency structure in the data. 
@@ -69,13 +75,11 @@ fl13.ts <- window(fl.ts, start = c(2013,1), end = c(2013, 12))
 # Interative = Dygraphs (http://www.htmlwidgets.org/showcase_dygraphs.html)
 # http://walkerke.github.io/2014/12/dygraphs/
 #################################################################################################
-install.packages("dygraph")
-library(dygraphs)
+#install.packages("dygraph")
+#library(dygraphs)
 
-dygraph(msp.fl, main = "Fluvanna County Median Sales Prices") %>% 
-  dyRangeSelector(dateWindow = c("1998-01-01", "2014-12-01"))
-
-### Deflate ?????????????
+#dygraph(msp.fl, main = "Fluvanna County Median Sales Prices") %>% 
+#  dyRangeSelector(dateWindow = c("1998-01-01", "2014-12-01"))
 #################################################################################################
 # Looking at the time-series
 plot(fl.ts)
@@ -83,7 +87,23 @@ plot(fl.ts)
 #  variation and a non-linear trend.
 #  What happensif you deflate the series?
 #################################################################################################
+## St Louis FED with API Key (environment variable FREDapi.key)
+fred <- FredR(FREDapi.key)
+str(fred,1)
+cpi <-  fred$series.search("CPIAUCSL")
+### Create a data frame of monthly cpi ################################################
+cpiindx <- fred$series.observations(series_id = 'CPIAUCSL')
+cpiindx <- subset(cpiindx,date >= '1996-01-01')
+#### Reference 1-1-2010 217.488=100
+base = 217.488
+cpiindx$value <-  as.numeric(cpiindx$value) / base
+# make time-series
+cpi.ts1 <- ts(cpiindx, start = c(1998, 1), end = c(2014, 12), frequency = 12)
+cpi.ts2 <- cpi.ts1[!is.na(cpi.ts1)]
+cpi.ts <- ts(cpi.ts2, start = c(1998, 1), end = c(2014, 12), frequency = 12)
+#################################################################################################
 # is there any stochastic cyclic behavior? 
+#################################################################################################
  plot(fl.ts[1:206], fl.ts[2:207], pch=20, col = c("blue","red")) 
  title("Scatterplot of Zillow Median Monthly Sales Price Data with Lag 1") 
 # compute the value of the Pearson correlation coefficient:
