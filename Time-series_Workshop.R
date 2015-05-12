@@ -92,7 +92,7 @@ plot(fl.ts)
 #################################################################################################
 ## St Louis FED with API Key (environment variable FREDapi.key)
 ##install.packages("devtools")
-##devtools::install_github("jcizel/FredR")
+devtools::install_github("jcizel/FredR")
 require(FredR)
 FREDApi.key <- 'd696e67c986a8c6cc318a551bf2166c3'
 fred <- FredR(FREDApi.key)
@@ -149,6 +149,7 @@ plot(lret.mspfl)
 ##### Deflated
 lret_real.mspfl <- diff (log(fl_real.ts))
 plot(lret_real.mspfl)
+#################################################################################################
 #################################################################################################
 #  The SMI log-returns are a close approximation to the relative change (percent
 #  values) with respect to the previous month.  There appears to be no dependency which could be
@@ -510,31 +511,229 @@ summary(impact3)
 summary(impact3, "report")
 
 #################################################################################################
-#  Use inventory as explnatory variable (ONLY HAVE 2010-FORWARD)
+###  CONSIDER ADDITIONAL EXPLNATORY VARIABLES
+###
+###  vIRGINIA data http://virginialmi.com/download_center/
+require(downloader)
+download("http://virginialmi.com/download_center/income/income.zip", dest="dataset.zip", mode="wb") 
+unzip ("dataset.zip", list=TRUE)
+
+download("http://virginialmi.com/download_center/labforce/labforce.zip", dest="dataset2.zip", mode="wb") 
+
+
+unzip ("dataset2.zip", list=TRUE)
+
+
+inc = read.table(unzip ("dataset.zip", files = "income.txt"), 
+               sep="\t", 
+               header = TRUE, 
+               fill=FALSE, 
+               strip.white=TRUE)
+
+vainc =  subset(inc,stfips=='51')
+names(vainc)
+va_fl.extra = subset(vainc,area=='65' & areatype=='60')
+va_fl.census = subset(vainc,area=='65' & areatype=='4')
+
+lab = read.table(unzip ("dataset2.zip", files = "labforce.txt"), 
+                 sep="\t", 
+                 header = TRUE, 
+                 fill=FALSE, 
+                 strip.white=TRUE)
+
+valab =  subset(lab,stfips=='51')
+va_fl.lab = subset(valab,area== "000065")
+
+### Clean up data
+va_fl = subset(va_fl.census,periodyear > '1997')
+va_fl = va_fl[,c(15,17)]
+
+va_fl.lab = subset(va_fl.lab ,periodyear > '1997')
+va_fl.lab = subset(va_fl.lab ,periodtype =='3')
+
+unemploy.fl = va_fl.lab[,17]
+unemploy.fl = unemploy.fl[-c(205,206,207)]
+flunemply.ts <- tsclean(unemploy.fl)
+flunemply.ts <- ts(flunemply.ts, start = c(1998, 1), end = c(2014, 12), frequency = 12)
+par(mfrow=c(1,1))
+plot(flunemply.ts)
+#  Seasonally Adjusting
+flunemply_adj.ts <- seasadj(stl(flunemply.ts, s.window="periodic"))
+plot(flunemply_adj.ts)
+# Unit root test
+adfTest(diff(flunemply_adj.ts ), lags = 0, type = "nc")
+################################################################################################
+## Run the model with forecolsures and unemployment
+newx = cbind(fclva,unemploy.fl )
+bsts.model2 <- bsts(flvec_real ~  newx, ss, niter = 1000)
+summary(bsts.model2)
+
+
+impact4 <- CausalImpact(bsts.model = bsts.model2,
+                        post.period.response = post.period.response)
+plot(impact4)
+plot(impact4$model$bsts.model, "coefficients")
+summary(impact4, "report")
+################################################################################################
+## Monthly lumber price index (http://future.aae.wisc.edu/data/monthly_values/by_area/3367?area=US&grid=true&tab=prices)
+lumber<- read.csv("http://future.aae.wisc.edu/data/monthly_values/by_area/3367.csv?area=US&vector=1",header=FALSE,skip=3)
+lumber<- subset( lumber, select = -c(V1,V3) )
+lumber.ts <- ts(lumber, start = c(1996, 1), end = c(2015, 3), frequency = 12)
+#### Created deflated time-series
+m <- merge(lumber.ts = as.zoo(lumber.ts), cpi.ts = as.zoo(cpi.ts))
+
+m$real <- m$lumber.ts/m$cpi.ts
+m <- m[,-c(1,2)]
+lumber_real.ts <- ts(m, start = c(1996, 1), end = c(2015, 3), frequency = 12)
+lumber_real <-  lumber_real.ts[!is.na(lumber_real.ts)]
+lumber_real.ts <- ts(lumber_real, start = c(1996, 1), end = c(2015, 3), frequency = 12)
+plot(lumber_real.ts)
+#  Seasonally Adjusting
+lumber_real_adj.ts <- seasadj(stl(lumber_real.ts, s.window="periodic"))
+plot(lumber_real_adj.ts)
+# Unit root test
+adfTest(diff(lumber_real_adj.ts), lags = 0, type = "nc")
+kpss.test(diff(lumber_real_adj.ts))
+
+################################################################################################
+# Read excel file on 30-year commitment rate from the Fannie Mae and Freddie Mac (monthly, US)
+# http://www.netegrate.com/index_files/Research%20Library/Catalogue/Economics/Housing/Modeling%20Long-range%20Dependence%20in%20U.S.%20Housing%20Prices.pdf
+################################################################################################
+#url4 <- "http://www.freddiemac.com/pmms/docs/30yr_pmmsmnth.xls"
+#crate30 <- read.xls(url4)
+#head(crate30)
+
+FFrate <- read.csv("E:/Files_MSExcel/FredMac_rates.csv")
+FFrate.ts <- ts(FFrate[,2], start = c(1998, 1), end = c(2014, 12), frequency = 12)
+plot(FFrate.ts)
+#  Seasonally Adjusting
+
+################################################################################################
+## SOCDS Building Permits Database
+## http://socds.huduser.org/permits/help.htm
+#######################################################################
+### USE RODBS to read access file
+#################################
+install.packages("RODBC")
+require(RODBC)
+download("http://socds.huduser.org/permits/bpdata4web.zip", dest="HUDdpermits.zip", mode="wb") 
+db <- unzip ("HUDdpermits.zip")
+con = odbcConnectAccess2007(db)
+sqlTables(con, tableType = "TABLE")$TABLE_NAME
+# Get variables names
+sqlColumns(con, "Place_monthlycumF")$COLUMN_NAME
+permitbymo = sqlFetch(con, "Place_monthlycumF")
+# Close connections
+odbcCloseAll()
+
+perm.va <- subset(permitbymo,state=='51' & series=='1')
+perm.fl <- subset(perm.va,county=='65')
+perm.fl <- perm.fl[,c("year", "month", "permits")]
+
+perm.fl = arrange(perm.fl,year,month)
+perm.fl <- perm.fl[,"permits"]
+# drop 1997
+perm.fl <- as.numeric(perm.fl[-c(1:12)])
+# add 2014 preliminary
+# http://socds.huduser.org/permits/output_monthly.odb
+prelim14 <- c(7,1,3,6,9,16,5,12,6,8,6,9) 
+perm.fl <-append(perm.fl,prelim14) 
+permfl.ts <- ts(perm.fl, start = c(1998, 1), end = c(2014, 12), frequency = 12)
+plot(permfl.ts)
+stl.permfl <- stl(permfl.ts,s.window="periodic",robust=TRUE)    
+plot(stl.permfl)
+# Unit root test
+adfTest(diff(permfl.ts), lags = 0, type = "nc")
+kpss.test(diff(permfl.ts))
+
+### **************************FULL MODEL *************************************************** ###
+################################################################################################
+data9 <- zoo(cbind(flvec_real,fclva,unemploy.fl,lumber_real,FFrate[,2],perm.fl), time.points)
+colnames(data9)[5] = "rate" 
+colnames(data9)[6] = "permits" 
+# A preliminary data analysis is conducted by displaying the summary statistics of the series
+summary(data9)
+# unit root tests by applying the Augmented Dickey-Fuller test 
+adf1 <- summary(ur.df(data9[, "flvec_real"], type = "trend", lags = 2))
+print(adf1)
+adf2 <- summary(ur.df(diff(data9[, "flvec_real"]), type = "drift",lags = 1))
+print(adf2)
+# It can be concluded that all time series are integrated of order one. 
 #################################################################################################
+# VAR models (vector autoregressive models) are used for multivariate time series. The structure is
+# that each variable is a linear function of past lags of itself and past lags of the other variables.
+# https://ideas.repec.org/a/jss/jstsof/27i04.html
+#################################################################################################
+install.packages("vars") #If not already installed
+install.packages("astsa") #If not already installed
+library(vars)
+library(astsa)
+# Check autocovariance or autocorrelation
+acf(coredata(data9))
+### take differences
+acf(coredata(diff(data9)))
+#################################################################################################
+#  Restricted or unrestricted model ???
+#################################################################################################
+###### identify the optimal VAR(p) order p.
+data9.VAR.const <- VARselect(data9,lag.max=12,type="const")
+data9.VAR.both <- VARselect(data9,lag.max=12,type="both")
+print( data9.VAR.const$selection)
+print( data9.VAR.both$selection)
+# According to the AIC and FPE the optimal lag number is p = 4, whereas the HQ criterion
+# and the SC criterion indicates an optimal lag length of p=2.
+#################################################################################################
+# Fit the VAR model corresponding to the Schwarz Criterion (SC)
+fit.var.0<-VAR(data9, p= data9.VAR.const$selection[3],type="const")
+summary(fit.var.0)
+######################  MODEL DIAGNOSTICS  #####################################################
+#Alternative stability analyis
+plot(stability(fit.var.0))
+1/roots(fit.var.0)[[1]] # ">1"
 
-inven <- read.csv("http://files.zillowstatic.com/research/public/County/InventoryMeasure_County_Public.csv")
-head(inven)
-invenfl <- subset(inven,RegionName=='Fluvanna')
-name <- invenfl$RegionName
-invenfl$RegionName <- NULL
-invenfl$StateFullName <- NULL
-invenfl$MSA <- NULL
-# transpose all but the first column (name)
+arch1 <- arch.test(fit.var.0)
+plot(arch1)
+plot(stability(fit.var.0), nc = 2)
+#################################################################################################
+## IMPULSE ANALYSIS
+## how does foreclosure rate influence price?
+plot(irf(fit.var.0, impulse="fclva"))
+# diffinv(pred$fcst$VARIABLENAME[1,], xi=t(data[nrow(data),"VARIABLENAME"])
+#################################################################################################
+#Fit a VECM with Engle-Granger 2OLS estimator:
+require( tsDyn)
+vecm.eg<-VECM (data3, lag=2)
 
-tinvenfl  <- as.data.frame(t(invenfl [,-1]))
-colnames(tinvenfl) <- name
-rownames(tinvenfl) <- NULL
+#Fit a VECM with Johansen MLE estimator:
+vecm.jo<-VECM(data9, lag=2, estim="ML")
+summary(vecm.jo)
+#compare results with package vars:
 
-sapply(tinvenfl ,class)
-tmsp.va$Fluvanna <- as.numeric(as.character(tmsp.va$Fluvanna))
-length(tinvenfl)
+  #check long coint values
+  all.equal(VECM(data9, lag=2, estim="ML", r=2)$model.specific$coint,
+            cajorls(ca.jo(data9, K=2, spec="transitory"), r=2)  $beta, check.attr=FALSE)
+  # check OLS parameters
+  all.equal(t(coefficients(VECM(data9, lag=2, estim="ML", r=2))),
+            coefficients(cajorls(ca.jo(data9, K=3, spec="transitory"), r=2)$rlm), check.attr=FALSE)
+  
+
+################################################################################################
+## Run the Impact model with ALL COVARIATES
+
+
+pre.period <- as.Date(c("1998-01-01", "2007-12-01"))
+post.period <- as.Date(c("2008-01-01", "2014-12-01"))
+
+impact5 <- CausalImpact(data9,pre.period, post.period,model.args = list(nseasons = 12, season.duration = 1))
+plot(impact5)
+plot(impact5$model$bsts.model$coefficients)
+summary(impact5, "report")
 
 #################################################################################################
 #Use Vacancy Rates by state 1986-2013
 #http://www.census.gov/housing/hvs/files/annual14/ann14t_4.xls
 #################################################################################################
-#library(gdata)
+library(gdata)
 #download.file("http://www.census.gov/housing/hvs/files/annual14/ann14t_4.xls", destfile="file.xls")
 #vacrate <- read.xls("file.xls", header=TRUE, pattern="Rank")
 
