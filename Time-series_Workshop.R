@@ -20,8 +20,13 @@ lapply(pkgs, library, character.only=T)
 #vignette("googleVis")
 
 #library(devtools)
-#devtools::install_github("google/CausalImpact")
+devtools::install_github("google/CausalImpact")
 library(CausalImpact)
+
+install.packages("vars") #If not already installed
+install.packages("astsa") #If not already installed
+library(vars)
+library(astsa)
 
 #################################################################################################
 #  LOAD ZILLOW DATA
@@ -98,6 +103,7 @@ FREDApi.key <- 'd696e67c986a8c6cc318a551bf2166c3'
 fred <- FredR(FREDApi.key)
 str(fred,1)
 cpi <-  fred$series.search("CPIAUCSL")
+cfnai <- fred$series.search("CFNAI")
 ### Create a data frame of monthly cpi ################################################
 cpiindx <- fred$series.observations(series_id = 'CPIAUCSL')
 cpiindx <- subset(cpiindx,date >= '1998-01-01')
@@ -108,6 +114,32 @@ cpiindx$value <-  as.numeric(cpiindx$value) / base
 cpi.ts1 <- ts(cpiindx, start = c(1998, 1), end = c(2014, 12), frequency = 12)
 cpi.ts2 <- cpi.ts1[!is.na(cpi.ts1)]
 cpi.ts <- ts(cpi.ts2, start = c(1998, 1), end = c(2014, 12), frequency = 12)
+
+plot(cpi.ts)
+
+### Create a data frame of CFNAI ################################################
+cfnaiindx <- fred$series.observations(series_id = 'CFNAI')
+################################################################################
+cfnai.xts <- xts(cfnaiindx$value, as.Date(as.character(cfnaiindx$date,"%d-%m-%Y")))
+year.end  <- endpoints(cfnai.xts, on = "years")
+cfnai.yr  <- period.apply(cfnai.xts, INDEX = year.end, FUN = mean)
+################################################################################
+cfnaiindx <- subset(cfnaiindx,date >= '1998-01-01')
+cfnaiindx <- as.numeric(cfnaiindx$value [-c(205:207)])
+cfnai.ts1 <- ts(cfnaiindx, start = c(1998, 1), end = c(2014, 12), frequency = 12)
+cfnai.ts2 <- cfnai.ts1[!is.na(cfnai.ts1)]
+cfnai.ts <- ts(cfnai.ts2, start = c(1998, 1), end = c(2014, 12), frequency = 12)
+
+plot(cfnai.ts)
+cfnai.yr <- to.yearly(as.xts(cfnai.ts))
+### Create a data frame of GREA ################################################
+# http://www-personal.umich.edu/~lkilian/paperlinks.html
+
+grea =read.table("http://www-personal.umich.edu/~lkilian/reaupdate.txt")
+
+grea.ts <- ts(grea, start = c(1998, 1), end = c(2015, 1), frequency = 12)
+plot(grea.ts)
+grea.indx <- data.frame(Y=as.matrix(grea.ts), date=time(grea.ts))
 ### Inflation adjustment
 ##########################################
 msp.merge <- merge(fl.ts = as.zoo(fl.ts), cpi.ts = as.zoo(cpi.ts))
@@ -648,9 +680,11 @@ kpss.test(diff(permfl.ts))
 
 ### **************************FULL MODEL *************************************************** ###
 ################################################################################################
-data9 <- zoo(cbind(flvec_real,fclva,unemploy.fl,lumber_real,FFrate[,2],perm.fl), time.points)
+time.points <- seq.Date(as.Date("1998-01-01"), by = "month", length.out = 204)
+data9 <- zoo(cbind(flvec_real,fclva,unemploy.fl,lumber_real,FFrate[,2],perm.fl,grea.indx$Y),time.points)
 colnames(data9)[5] = "rate" 
 colnames(data9)[6] = "permits" 
+colnames(data9)[7] = "GREA" 
 # A preliminary data analysis is conducted by displaying the summary statistics of the series
 summary(data9)
 # unit root tests by applying the Augmented Dickey-Fuller test 
@@ -664,10 +698,7 @@ print(adf2)
 # that each variable is a linear function of past lags of itself and past lags of the other variables.
 # https://ideas.repec.org/a/jss/jstsof/27i04.html
 #################################################################################################
-install.packages("vars") #If not already installed
-install.packages("astsa") #If not already installed
-library(vars)
-library(astsa)
+
 # Check autocovariance or autocorrelation
 acf(coredata(data9))
 ### take differences
