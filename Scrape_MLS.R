@@ -24,7 +24,7 @@ result <- vector("list", length = n)
 for (j in 1:m){
   
   for(i in 1:n){
-    print(i) # keep track of what the function is up to
+    #print(i) # keep track of what the function is up to
     # get all html on each page of the a-z index pages
     
     links[[i]]  <- htmlParse(paste0("http://www.charlottesvillerealestatebuzz.com/market-report/fluvanna-county-va-real-estate-market-report-", months[i], "-",year[j],"/"),encoding = "UTF-8")
