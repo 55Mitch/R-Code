@@ -93,4 +93,4 @@ hmrall[7,3] <- 184781
 hmrall[7,4] <- 94.64
 hmrall[7,5] <- 90
 
-hmrall.ts <- ts(hmrall, start = c(2012,1), end = c(2014, 12), frequency = 12)
+hmrall.ts <- ts(hmrall[,3], start = c(2012,1), end = c(2014, 12), frequency = 12)
