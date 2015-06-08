@@ -1,12 +1,3 @@
-# install and load packages
-pkgs <- c("RCurl", "XML", "stringr", "httr", "plyr", "ggplot2","rvest","R.utils",
-          "zoo", "httr", "mgcv","gamair", "knitr", "markdown", "dplyr","downloader") 
-
-# install.packages(pkgs)
-lapply(pkgs, library, character.only=T)
-
-
-
 #################################################################################################
 # Scrape data from BLS webpages
 #################################################################################################
