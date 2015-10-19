@@ -77,13 +77,20 @@ head(hmr13)
 sapply(hmr13 ,class)
 hmr13.ts <- ts(hmr13, start = c(2013, 1), end = c(2013, 12), frequency = 12)
 
-
 hmr14 <- as.data.frame(t(total[[3]][,-1]))
 colnames(hmr14) <- total[[3]]$item
 rownames(hmr14) <- NULL
 head(hmr14)
 sapply(hmr14 ,class)
 hmr14.ts <- ts(hmr14, start = c(2014, 1), end = c(2014, 12), frequency = 12)
+
+#hmr15 <- as.data.frame(t(total[[4]][,-1]))
+#colnames(hmr15) <- total[[4]]$item
+#rownames(hmr15) <- NULL
+#head(hmr15)
+#sapply(hmr15 ,class)
+#hmr15.ts <- ts(hmr15, start = c(2015, 1), end = c(2015, 12), frequency = 12)
+
 
 hmrall <- rbind_all(list(hmr12,hmr13,hmr14))
 # Fix July 2012
