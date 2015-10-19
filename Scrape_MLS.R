@@ -13,7 +13,7 @@ lapply(pkgs, library, character.only=T)
 ### Create loop for monthly reports by year
 items <- c("Total Home Units Sold","Average Sales Price","Median Sales Price",
            "Average List to Sales Price", "Average Days on Market")
-year <- seq(2012,2014,1)
+year <- seq(2012,2015,1)
 m <- length(year) 
 total <- vector("list", length = m)
 months <- month.name
@@ -85,7 +85,14 @@ head(hmr14)
 sapply(hmr14 ,class)
 hmr14.ts <- ts(hmr14, start = c(2014, 1), end = c(2014, 12), frequency = 12)
 
-hmrall <- rbind_all(list(hmr12,hmr13,hmr14))
+hmr15 <- as.data.frame(t(total[[4]][,-1]))
+colnames(hmr15) <- total[[4]]$item
+rownames(hmr15) <- NULL
+head(hmr15)
+sapply(hmr15 ,class)
+hmr15.ts <- ts(hmr15, start = c(2015, 1), end = c(2015, 12), frequency = 12)
+
+hmrall <- rbind_all(list(hmr12,hmr13,hmr14,hmr15))
 # Fix July 2012
 hmrall[7,1] <- 28
 hmrall[7,2] <- 195605
@@ -93,4 +100,4 @@ hmrall[7,3] <- 184781
 hmrall[7,4] <- 94.64
 hmrall[7,5] <- 90
 
-hmrall.ts <- ts(hmrall[,3], start = c(2012,1), end = c(2014, 12), frequency = 12)
+hmrall.ts <- ts(hmrall[,3], start = c(2012,1), end = c(2015, 12), frequency = 12)
