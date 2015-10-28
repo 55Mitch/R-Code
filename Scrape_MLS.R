@@ -91,7 +91,10 @@ hmr14.ts <- ts(hmr14, start = c(2014, 1), end = c(2014, 12), frequency = 12)
 #sapply(hmr15 ,class)
 #hmr15.ts <- ts(hmr15, start = c(2015, 1), end = c(2015, 12), frequency = 12)
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/master
 hmrall <- rbind_all(list(hmr12,hmr13,hmr14))
 # Fix July 2012
 hmrall[7,1] <- 28
