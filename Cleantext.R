@@ -28,7 +28,7 @@ clean.text <- function(some_txt)
 }
   f_clean_tweets <- function (tweets) {
   
-  clean_tweets = sapply(tweets, function(x) x$getText())
+  clean_tweets = sapply(tweets, function(x) x[[getText()]])
   # remove retweet entities
   clean_tweets = gsub('(RT|via)((?:\\b\\W*@\\w+)+)', '', clean_tweets)
   # remove at people
