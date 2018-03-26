@@ -1,4 +1,8 @@
 ### fetching tweets ###
+###Loading my twitter credentials
+api_key <- "NUS7NG4UW8jgUPKyzo2zfGjZj"
+api_secret <- "etmI4Pd3QAHfTX6YalYAqyakCtlPIfXztlz8yuMjkErWpBlkCQ"
+twitter_token <- create_token(app = "mytwitterapp", api_key, api_secret)
 #download.file(url = "http://curl.haxx.se/ca/cacert.pem",destfile = "cacert.pem")
 ###### Load Plotly Credentials
 Sys.setenv("plotly_username"="55mitch")
