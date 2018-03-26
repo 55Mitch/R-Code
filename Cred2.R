@@ -1,4 +1,5 @@
 ###Loading my twitter credentials
+options(httr_oauth_cache=T)
 api_key <- "0XkQ9vgX4pKUhtj1Ej4uO59f3"
 api_secret <- "Az0Br6rXLIsKsQD96McEe9Jl1NhP9KFR3Tj9TyXXMb0MDnhR5g"
 access_token <- "3980633294-FvqkFMRneOuP0FnuSXrdcVPJ1IWCy2Rdetjk6ay"
