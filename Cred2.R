@@ -7,8 +7,7 @@ access_token_secret <- "MCQhS8MuMBK5VRAKih6FjWFlpnZQ39Z1IgHeXz7NNkCJh"
 setup_twitter_oauth(api_key, api_secret, access_token, access_token_secret)
 
 ### fetching tweets ###
-download.file(url = "http://curl.haxx.se/ca/cacert.pem",
-              destfile = "cacert.pem")
+#download.file(url = "http://curl.haxx.se/ca/cacert.pem",destfile = "cacert.pem")
 ###### Load Plotly Credentials
 Sys.setenv("plotly_username"="55mitch")
 Sys.setenv("plotly_api_key"="ktOOlYRAf2sxMF3nahed")
